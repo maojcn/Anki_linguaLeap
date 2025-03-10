@@ -43,7 +43,6 @@ def generate_cards(api_key: str, target_language: str, native_language: str, num
     - translation: Translation of the example sentence in {native_language}
     - notes: Any cultural context, formality level, or grammar notes
     - cefr_level: The CEFR level of this expression (should match requested level: {cefr_level})
-    - audio_url: A Forvo.com URL for pronunciation, if available (optional)
     
     Make sure the expressions are:
     - Appropriate for CEFR level {cefr_level} learners of {target_language}
@@ -91,7 +90,7 @@ def save_to_csv(cards: List[Dict[str, str]], filename: str) -> None:
         return
     
     fieldnames = ['expression', 'context', 'meaning', 'literal', 'usage', 
-                  'translation', 'notes', 'cefr_level', 'audio_url']
+                  'translation', 'notes', 'cefr_level']
     
     try:
         with open(filename, 'w', newline='', encoding='utf-8') as csvfile:
