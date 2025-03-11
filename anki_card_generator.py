@@ -29,12 +29,32 @@ def generate_cards(api_key: str, target_language: str, native_language: str, num
     You are an expert linguist and language teacher specializing in creating high-quality language learning materials.
     You have deep knowledge of the Common European Framework of Reference for Languages (CEFR) levels and can accurately
     create language content appropriate for each level.
+    
+    You will output strictly valid JSON with language learning expressions according to the user's requirements.
+    Your output must be a JSON object with a single key "cards" containing an array of card objects.
+    
+    Example JSON output format:
+    {
+      "cards": [
+        {
+            "expression": "Expression in target language",
+            "context": "When/where this is used",
+            "meaning": "Translation or meaning",
+            "literal": "Word-for-word translation if applicable",
+            "usage": "Example sentence",
+            "translation": "Translation of example",
+            "notes": "Cultural context or grammar notes",
+            "cefr_level": "CEFR level"
+        }
+      ]
+    }
     """
     
     user_prompt = f"""
     Create {num_cards} useful, everyday expressions in {target_language} related to {topic} at CEFR level {cefr_level}.
     
-    Format your response as a valid JSON array where each object has these fields:
+    Your output must be a JSON object with a single key "cards" containing an array of {num_cards} card objects.
+    Each object in the array must have these fields:
     - expression: The expression in {target_language}
     - context: When/where this expression is typically used
     - meaning: Translation or meaning in {native_language}
@@ -50,8 +70,6 @@ def generate_cards(api_key: str, target_language: str, native_language: str, num
     - Useful for everyday conversation
     - Varied in formality levels
     - Include some idioms and colloquial phrases if appropriate for the level
-    
-    Return ONLY the JSON array with no additional text or explanation.
     """
     
     print(f"Generating {num_cards} {target_language} expressions at CEFR level {cefr_level} about {topic} with translations in {native_language}...")
@@ -63,24 +81,34 @@ def generate_cards(api_key: str, target_language: str, native_language: str, num
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_prompt}
             ],
-            max_tokens=4000
+            max_tokens=4000,
+            response_format={"type": "json_object"}
         )
         
-        # Extract JSON from the response
+        # Parse JSON from the response
         response_text = response.choices[0].message.content
+        parsed_response = json.loads(response_text)
         
-        # Find JSON in the response (in case there's any extra text)
-        json_start = response_text.find('[')
-        json_end = response_text.rfind(']') + 1
-        
-        if json_start >= 0 and json_end > json_start:
-            json_str = response_text[json_start:json_end]
-            return json.loads(json_str)
+        # Extract the cards array from the response
+        if isinstance(parsed_response, dict) and "cards" in parsed_response:
+            return parsed_response["cards"]
+        elif isinstance(parsed_response, list):
+            return parsed_response
         else:
-            raise ValueError("Could not find valid JSON array in response")
+            print("Unexpected response format. Attempting to extract cards...")
+            # Try to find any array in the response that might contain our cards
+            for key, value in parsed_response.items():
+                if isinstance(value, list) and len(value) > 0:
+                    if isinstance(value[0], dict) and "expression" in value[0]:
+                        return value
+            
+            print("Error: Could not extract cards from API response")
+            print(f"Response structure: {json.dumps(parsed_response, indent=2)[:500]}...")
+            return []
             
     except Exception as e:
-        print(f"Error generating cards: {e}")
+        print(f"Error generating cards: {str(e)}")
+        print(f"Response text: {response_text if 'response_text' in locals() else 'Not available'}")
         return []
 
 def save_to_csv(cards: List[Dict[str, str]], filename: str) -> None:
